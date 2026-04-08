@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Catch the Color</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at top, #1f2a44, #0d1321);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  h1 {
+    margin-top: 15px;
+    text-shadow: 0 0 15px #00f0ff;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: 30px;
+    font-size: 1.2rem;
+  }
+
+  .danger {
+    animation: shake 0.3s infinite;
+    color: #ff4d4d;
+  }
+
+  @keyframes shake {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(3px,0); }
+    50% { transform: translate(-3px,0); }
+    75% { transform: translate(3px,0); }
+    100% { transform: translate(0,0); }
+  }
+
+  .game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 55vh;
+  }
+
+  .card {
+    width: 320px;
+    aspect-ratio: 1 / 1;
+    background: #111;
+    border-radius: 20px;
+    box-shadow: 0 0 25px rgba(0,255,255,0.4);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 2.2rem;
+    font-weight: bold;
+    gap: 20px;
+
+    animation: pop 0.2s ease;
+  }
+
+  @keyframes pop {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .correct {
+    box-shadow: 0 0 30px #00ff88;
+    transform: scale(1.05);
+  }
+
+  .wrong {
+    box-shadow: 0 0 30px #ff3b3b;
+    transform: scale(0.95);
+  }
+
+  .combo {
+    color: #ffd700;
+    font-weight: bold;
+  }
+
+  .buttons {
+    margin-top: 15px;
+    display: flex;
+    gap: 12px;
+  }
+
+  button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    transform: scale(1.2);
+  }
+
+  .red { background: red; }
+  .yellow { background: yellow; }
+  .green { background: limegreen; }
+  .blue { background: dodgerblue; }
+  .black { background: black; border: 2px solid white; }
+
+  .hidden { display: none; }
+
+  .btn-main {
+    margin-top: 20px;
+    padding: 12px 25px;
+    border-radius: 10px;
+    background: #00c3ff;
+    border: none;
+    cursor: pointer;
+  }
+
+</style>
+</head>
+
+<body>
+
+<h1>🎮 Catch the Color</h1>
+
+<div class="top-bar">
+  ⏱️ <span id="time">60</span>s
+  🏆 <span id="score">0</span>
+  🔥 <span id="combo">0</span>
+  🥇 BEST: <span id="best">0</span>
+</div>
+
+<div id="startScreen">
+  <button class="btn-main" onclick="startGame()">START</button>
+</div>
+
+<div class="game-container hidden" id="gameScreen">
+  <div class="card" id="card">
+    <div id="word1"></div>
+    <div id="word2"></div>
+  </div>
+</div>
+
+<div class="buttons hidden" id="buttons">
+  <button class="red" onclick="selectColor('red')"></button>
+  <button class="yellow" onclick="selectColor('yellow')"></button>
+  <button class="green" onclick="selectColor('green')"></button>
+  <button class="blue" onclick="selectColor('blue')"></button>
+  <button class="black" onclick="selectColor('black')"></button>
+</div>
+
+<script>
+
+const colors = ["red","yellow","green","blue","black"];
+let answer="", score=0, combo=0, time=60, timer;
+let gameActive=false, isProcessing=false;
+
+/* 🔊 효과음 */
+function playSound(freq) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  osc.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.1);
+}
+
+/* 셔플 */
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function startGame(){
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("gameScreen").classList.remove("hidden");
+  document.getElementById("buttons").classList.remove("hidden");
+
+  score=0; combo=0; time=60;
+  gameActive=true;
+
+  updateUI();
+  nextCard();
+
+  timer=setInterval(()=>{
+    time--;
+    if(time<=0){
+      endGame();
+    }
+    updateUI();
+
+    if(time<=10){
+      document.body.classList.add("danger");
+    }
+  },1000);
+}
+
+function updateUI(){
+  document.getElementById("time").innerText=time;
+  document.getElementById("score").innerText=score;
+  document.getElementById("combo").innerText=combo;
+  document.getElementById("best").innerText=localStorage.best||0;
+}
+
+function nextCard(){
+  const shuffled=shuffle([...colors]);
+  const used=shuffled.slice(0,4);
+  answer=shuffled[4];
+
+  const w1=document.getElementById("word1");
+  const w2=document.getElementById("word2");
+
+  w1.innerText=used[0].toUpperCase();
+  w2.innerText=used[1].toUpperCase();
+
+  w1.style.color=used[2];
+  w2.style.color=used[3];
+
+  const card=document.getElementById("card");
+  card.className="card";
+}
+
+function selectColor(choice){
+  if(!gameActive||isProcessing)return;
+  isProcessing=true;
+
+  const card=document.getElementById("card");
+
+  if(choice===answer){
+    combo++;
+    score+=1+Math.floor(combo/3);
+    card.classList.add("correct");
+    playSound(800);
+  }else{
+    combo=0;
+    score=Math.max(0,score-1);
+    card.classList.add("wrong");
+    playSound(200);
+  }
+
+  updateUI();
+
+  setTimeout(()=>{
+    nextCard();
+    isProcessing=false;
+  },300);
+}
+
+function endGame(){
+  clearInterval(timer);
+  gameActive=false;
+
+  if(score>(localStorage.best||0)){
+    localStorage.best=score;
+  }
+
+  alert("게임 종료! 점수: "+score);
+  location.reload();
+}
+
+</script>
+
+</body>
+</html>
